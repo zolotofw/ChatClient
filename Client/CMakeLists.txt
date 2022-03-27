@@ -20,9 +20,11 @@ set(TS_FILES Client_en_GB.ts)
 set(PROJECT_SOURCES
         main.cpp
         source/ChatWindow.cpp
-        source/ChatWindow.hpp
-        ChatWindow.ui
-        #TODO add git external repository with protocol static lib
+        source/ChatWindow.hpp       
+        source/ChatWindow.ui
+        source/ChatSession.hpp
+        source/ChatSession.cpp
+        #todo add git external repository with protocol static lib
         ../Protocol/Protocoll.hpp
         ../Protocol/Protocol.cpp
         ${TS_FILES}
@@ -57,7 +59,7 @@ endif()
 
 target_link_libraries(Client PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 target_link_libraries(Client PRIVATE Qt${QT_VERSION_MAJOR}::Network)
-target_include_directories(Client PUBLIC /source/)
+target_include_directories(Client PUBLIC source/)
 target_include_directories(Client PUBLIC ../Protocol)
 
 set_target_properties(Client PROPERTIES

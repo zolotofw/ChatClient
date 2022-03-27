@@ -1,7 +1,8 @@
 #include "ChatWindow.hpp"
 #include "./ui_ChatWindow.h"
-#include <QDebug>
 #include "Protocoll.hpp"
+#include <QDebug>
+#include <QString>
 
 
 namespace
@@ -10,11 +11,34 @@ namespace
     const qint64 PORT { 1234 };
 }
 
+namespace edit_text
+{
+    enum class COLOR
+    {
+        PURPLE,
+        BLUE
+    };
+
+    QString generate_string_color( COLOR color, const std::string& user_name, const std::string& data = "" )
+    {
+        switch ( color )
+        {
+            case COLOR::PURPLE:
+                return QString::fromStdString("<font color=\"Purple\">" + user_name + "</font>  " + data);
+
+            case COLOR::BLUE:
+                return QString::fromStdString("<font color=\"Blue\">" + user_name + "</font>  " + data);
+
+            default:
+                return QString::fromStdString("<font color=\"Purple\">" + user_name + "</font>  " + data);
+        }
+    }
+}  // namespace
+
 ChatWindow::ChatWindow(QWidget *parent)
     :
       QMainWindow(parent),
-      ui(new Ui::ChatWindow),
-      m_socket(nullptr)
+      ui(new Ui::ChatWindow)
 {
     ui->setupUi(this);
 }
@@ -24,71 +48,33 @@ ChatWindow::~ChatWindow()
     delete ui;
 }
 
+void ChatWindow::sl_show_text(const std::string& user_name, const std::string& message)
+{
+    QString text = edit_text::generate_string_color(edit_text::COLOR::PURPLE, user_name, message);
+    ui->textEditChat->append(text);
+}
+
 void ChatWindow::on_push_button_send_message_clicked()
 {
     std::string message = ui->lineEditMessage->text().toStdString();
-    std::string data = Protocol::encode_message( Protocol::Message{ m_name_client, message });
-
-    m_socket->write(data.c_str());
+    ui->lineEditMessage->clear();
+    emit sg_send_new_message(m_user_name, message);
 }
 
 void ChatWindow::on_push_button_connect_clicked()
-{    
-    if(m_socket == nullptr)
-    {
-        m_socket = new QTcpSocket;
-        m_name_client = ui->lineEditLogin->text().toStdString();
-        connect(m_socket, &QTcpSocket::connected, this, &ChatWindow::socket_connected);
-        connect(m_socket, &QTcpSocket::readyRead, this, &ChatWindow::socket_ready_read);
-
-        m_socket->connectToHost(::IP, ::PORT);
-    }
-}
-
-void ChatWindow::socket_connected()
 {
-    qDebug() << "Server connected";
-    std::string data = Protocol::encode_handshake(Protocol::Hanshake{m_name_client}).c_str();
+    m_user_name = ui->lineEditLogin->text().toStdString();
 
-    m_socket->write(data.c_str());
-}
-
-void ChatWindow::socket_ready_read()
-{
-    std::string data = m_socket->readAll().data();
-    Protocol::Type type = Protocol::switch_protocol_type(data);
-
-    switch (type)
+    if (m_user_name.empty())
     {
-        case Protocol::Type::HANDSHAKE:
-        {
-            Protocol::Hanshake handshake = Protocol::decode_handshake(data);
-            ui->textEditChat->append(handshake.user_name.c_str());
-            break;
-        }
-        case Protocol::Type::MESSAGE:
-        {
-            Protocol::Message message = Protocol::decode_message(data);
-            ui->textEditChat->append(QString::fromStdString(message.user_name + " " + message.message));
-            break;
-        }
-        case Protocol::Type::INFO:
-        {
-            Protocol::Info info = Protocol::decode_info(data);
-            ui->textEditChat->append(QString::fromStdString(info.user_name + " " + info.info));
-            break;
-        }
+        ui->lineEditLogin->setText("Input user name");
+        return;
     }
+
+    emit sg_send_connect(m_user_name.c_str());
 }
 
 void ChatWindow::on_push_button_disconnect_clicked()
 {
-    ui->textEditChat->append("Disconected");
-    std::string info = Protocol::encode_info(Protocol::Info{ m_name_client, "Disconected"});
-
-    m_socket->write(info.c_str());
-    m_socket->disconnectFromHost();
-
-    m_socket = nullptr;
+    emit sg_send_disconnect(m_user_name);
 }
-
